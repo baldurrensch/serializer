@@ -47,23 +47,36 @@ class HandlerRegistry implements HandlerRegistryInterface
 
             foreach ($directions as $direction) {
                 $method = isset($methodData['method']) ? $methodData['method'] : self::getDefaultMethod($direction, $methodData['type'], $methodData['format']);
-                $this->registerHandler($direction, $methodData['type'], $methodData['format'], array($handler, $method));
+                $inheriting = !empty($methodData['inheriting']);
+                $this->registerHandler($direction, $methodData['type'], $methodData['format'], array($handler, $method), $inheriting);
             }
         }
     }
 
-    public function registerHandler($direction, $typeName, $format, $handler)
+    public function registerHandler($direction, $typeName, $format, $handler, $inheriting = false)
     {
         if (is_string($direction)) {
             $direction = GraphNavigator::parseDirection($direction);
         }
-
         $this->handlers[$direction][$typeName][$format] = $handler;
+        if ($inheriting) {
+            $this->handlers[$direction][$typeName]['inheriting'] = true;
+        }
     }
 
-    public function getHandler($direction, $typeName, $format)
+    public function getHandler($direction, $typeName, $format, $object = null)
     {
         if ( ! isset($this->handlers[$direction][$typeName][$format])) {
+            if ( ! empty($this->handlers[$direction])) {
+                foreach ($this->handlers[$direction] as $type => $handler) {
+                    if ( ! empty($handler['inheriting']) && ! empty($handler[$format])) {
+                        if (is_a($object, $type)) {
+                            return $handler[$format];
+                        }
+                    }
+                }
+            }
+
             return null;
         }
 

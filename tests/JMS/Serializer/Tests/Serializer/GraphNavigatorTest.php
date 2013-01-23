@@ -120,6 +120,33 @@ class GraphNavigatorTest extends \PHPUnit_Framework_TestCase
         $this->navigator->accept($object, null, $this->visitor);
     }
 
+    public function testNavigatorChangeTypeOnSerializationWithInheritance()
+    {
+        $object = new InheritingClass();
+
+        $subscribingHandlerClass = $this->getMockClass('JMS\Serializer\Handler\SubscribingHandlerInterface', array('getSubscribingMethods', 'serialize'));
+        $subscribingHandlerClass::staticExpects($this->once())
+            ->method('getSubscribingMethods')
+            ->will($this->returnValue(array(array(
+                'type' => 'JMS\Serializer\Tests\Serializer\SerializableClass',
+                'format' => 'foo',
+                'direction' => GraphNavigator::DIRECTION_SERIALIZATION,
+                'method' => 'serialize',
+                'inheriting' => true,
+            ))));
+
+        $subscribingHandler = new $subscribingHandlerClass();
+        $subscribingHandler->expects($this->once())
+            ->method('serialize')
+            ->with($this->equalTo($this->visitor), $this->equalTo($object));
+
+        $this->handlerRegistry->registerSubscribingHandler($subscribingHandler);
+
+        $this->navigator = new GraphNavigator(GraphNavigator::DIRECTION_SERIALIZATION, $this->metadataFactory, 'foo', $this->handlerRegistry, $this->objectConstructor, null, $this->dispatcher);
+        $this->navigator->accept($object, null, $this->visitor);
+    }
+
+
     protected function setUp()
     {
         $this->visitor = $this->getMock('JMS\Serializer\VisitorInterface');
@@ -135,4 +162,9 @@ class GraphNavigatorTest extends \PHPUnit_Framework_TestCase
 class SerializableClass
 {
     public $foo = 'bar';
+}
+
+class InheritingClass extends SerializableClass
+{
+    public $bar = 'baz';
 }
